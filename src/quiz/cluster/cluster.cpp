@@ -13,12 +13,12 @@
 pcl::visualization::PCLVisualizer::Ptr initScene(Box window, int zoom)
 {
 	pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer ("2D Viewer"));
-	viewer->setBackgroundColor (0, 0, 0);
+	viewer->setBackgroundColor (1, 1, 1);
   	viewer->initCameraParameters();
   	viewer->setCameraPosition(0, 0, zoom, 0, 1, 0);
   	viewer->addCoordinateSystem (1.0);
 
-  	viewer->addCube(window.x_min, window.x_max, window.y_min, window.y_max, 0, 0, 1, 1, 1, "window");
+  	viewer->addCube(window.x_min, window.x_max, window.y_min, window.y_max, 0, 0, 0, 0, 0, "window");
   	return viewer;
 }
 
@@ -44,7 +44,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr CreateData(std::vector<std::vector<float>> p
 }
 
 
-void render2DTree(Node* node, pcl::visualization::PCLVisualizer::Ptr& viewer, Box window, int& iteration, uint depth=0)
+void render2DTree(Node* node, pcl::visualization::PCLVisualizer::Ptr& viewer, Box window, int& iteration, unsigned int depth=0)
 {
 
 	if(node!=NULL)
@@ -75,12 +75,50 @@ void render2DTree(Node* node, pcl::visualization::PCLVisualizer::Ptr& viewer, Bo
 
 }
 
+void Proximity(const std::vector<std::vector<float>>& points, std::vector<int>& cluster, int index, std::vector<bool> &processing, KdTree* tree, float distanceTol)
+{
+    processing[index] = true;
+    cluster.push_back(index);
+    std::vector<int> nearby = tree->search(points[index], distanceTol);    // this function can deliver the point itself!! Therefore object processing is needed to stop recursion.
+
+    for (int point_near : nearby)
+    {
+        if (!processing[point_near])
+        {
+            Proximity(points, cluster, point_near, processing, tree, distanceTol);
+        }        
+    }
+
+
+
+}
+
+
 std::vector<std::vector<int>> euclideanCluster(const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol)
 {
 
 	// TODO: Fill out this function to return list of indices for each cluster
 
 	std::vector<std::vector<int>> clusters;
+    std::vector<bool> processing(points.size(), false); // This is necessary for Proximity function to be interrupted in case that current point is found by search function to be a nearest point.
+
+    int index = 0;
+
+    while(index < points.size())
+    {
+        if (processing[index])
+        {
+            index++;
+        }
+        else
+        {
+            std::vector<int> cluster;
+            Proximity(points, cluster, index, processing, tree, distanceTol);
+            clusters.push_back(cluster);
+            index++;
+        }
+
+    }
  
 	return clusters;
 
